@@ -388,7 +388,7 @@ def run_streamlit_app() -> None:
     """Entry point for the Streamlit dashboard."""
 
     st.set_page_config(
-        page_title="SOC Triage Automator",
+        page_title="HanSec SOC Triage Automator",
         page_icon="🛡️",
         layout="wide",
     )
@@ -407,7 +407,7 @@ def run_streamlit_app() -> None:
     """, unsafe_allow_html=True)
 
     # ── Header ────────────────────────────────────────────────────────────────
-    st.title("🛡️ SOC Triage & Threat Intelligence Automator")
+    st.title("HanSec  SOC Triage & Threat Intelligence Automator")
     st.caption("Ingest → Detect → Enrich → Report  |  Supports Apache / Nginx combined log format")
     st.divider()
 
