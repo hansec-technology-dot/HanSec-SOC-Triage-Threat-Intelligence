@@ -1,17 +1,17 @@
 """
 ============================================================
-SOC Triage & Threat Intelligence Automator (FIXED)
+SOC Triage & Threat Intelligence Automator (LIGHT THEME)
 ============================================================
 Author  : Senior Cybersecurity Engineer / Python Developer
 Purpose : Ingests Apache/Nginx access logs, detects SQLi,
           XSS, and Path Traversal attacks, enriches suspicious
           IPs via AbuseIPDB, and renders a Streamlit dashboard.
 
-FIXES in v2.1:
-- Fixed deprecated pandas applymap (now uses map)
-- Improved text contrast with white color scheme
-- Better error handling for missing columns
-- Enhanced UI readability
+THEME UPDATE v2.2:
+- Light theme with high-contrast text for readability
+- Professional color scheme for SOC dashboards
+- Improved table styling with hover effects
+- Better visual hierarchy
 ============================================================
 """
 
@@ -24,7 +24,6 @@ import io
 from urllib.parse import unquote
 from datetime import datetime
 from typing import Dict, Optional, Tuple
-from functools import lru_cache
 
 import pandas as pd
 import requests
@@ -38,7 +37,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load .env so ABUSEIPDB_API_KEY is available without typing it every run
+# Load .env
 load_dotenv()
 
 
@@ -411,105 +410,261 @@ def build_report(enriched_df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# E.  STREAMLIT APPLICATION (FIXED with white text)
+# E.  STREAMLIT APPLICATION (LIGHT THEME - HIGH CONTRAST)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_streamlit_app() -> None:
-    """Entry point for the Streamlit dashboard with enhanced UI."""
+    """Entry point for the Streamlit dashboard with light theme."""
     
     st.set_page_config(
         page_title="HanSec SOC Triage Automator",
         page_icon="🛡️",
         layout="wide",
+        initial_sidebar_state="expanded",
     )
 
-    # ── Custom CSS for white text readability ─────────────────────────────────
+    # ── Custom CSS for Light Theme with High Contrast ─────────────────────────
     st.markdown("""
     <style>
-    /* Main text color - white for readability */
+    /* Main container - Light background */
     .stApp {
-        background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+        background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
     }
     
-    /* All text elements */
+    /* All text - Dark for high contrast */
     .stMarkdown, .stText, .stCaption, p, div, span, label {
-        color: #ffffff !important;
+        color: #1a1a2e !important;
     }
     
-    /* Headers */
+    /* Headers - Bold dark */
     h1, h2, h3, h4, h5, h6, .stHeading {
-        color: #ffffff !important;
+        color: #0f3460 !important;
+        font-weight: 600 !important;
     }
     
-    /* Dataframe/Table text */
-    .stTable, .stDataFrame, [data-testid="stDataFrame"] {
-        color: #ffffff !important;
+    /* Headers specific colors */
+    h1 {
+        color: #0f3460 !important;
+        border-bottom: 3px solid #e94560;
+        display: inline-block;
+        padding-bottom: 5px;
+    }
+    
+    h2, h3 {
+        color: #16213e !important;
+    }
+    
+    /* Dataframe/Table styling */
+    .stDataFrame, [data-testid="stDataFrame"] {
+        background-color: #ffffff !important;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
     /* Table headers */
     th {
-        background-color: #1f2937 !important;
+        background-color: #0f3460 !important;
         color: #ffffff !important;
-        font-weight: bold !important;
+        font-weight: 600 !important;
+        padding: 12px !important;
+        font-size: 14px !important;
     }
     
     /* Table cells */
     td {
-        color: #e5e7eb !important;
+        background-color: #ffffff !important;
+        color: #1a1a2e !important;
+        padding: 10px !important;
+        border-bottom: 1px solid #e0e0e0 !important;
+    }
+    
+    /* Hover effect on rows */
+    tr:hover td {
+        background-color: #f0f4f8 !important;
+        transition: background-color 0.2s ease;
     }
     
     /* Metric cards */
+    [data-testid="stMetric"] {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e0e0e0;
+    }
+    
     [data-testid="stMetricValue"] {
-        color: #ffffff !important;
+        color: #0f3460 !important;
+        font-size: 32px !important;
+        font-weight: 700 !important;
     }
     
     [data-testid="stMetricLabel"] {
-        color: #9ca3af !important;
+        color: #5a6c7e !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
     }
     
-    /* Sidebar */
+    [data-testid="stMetricDelta"] {
+        color: #e94560 !important;
+    }
+    
+    /* Sidebar styling */
     .css-1d391kg, .stSidebar {
-        background-color: #111827 !important;
+        background: linear-gradient(180deg, #0f3460 0%, #16213e 100%) !important;
     }
     
-    /* Sidebar text */
-    .stSidebar .stMarkdown, .stSidebar label, .stSidebar p {
+    /* Sidebar text - White for contrast on dark sidebar */
+    .stSidebar .stMarkdown, 
+    .stSidebar label, 
+    .stSidebar p,
+    .stSidebar .stTextInput label,
+    .stSidebar .stRadio label,
+    .stSidebar .stFileUploader label {
         color: #ffffff !important;
+    }
+    
+    .stSidebar .st-emotion-cache-1v0mbdj {
+        color: #ffffff !important;
+    }
+    
+    /* Sidebar headers */
+    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar .stHeading {
+        color: #ffffff !important;
+        border-bottom: 2px solid #e94560;
+        display: inline-block;
     }
     
     /* Code blocks */
     .stCodeBlock {
-        background-color: #1e1e1e !important;
-        color: #d4d4d4 !important;
+        background-color: #1e1e2e !important;
+        border-radius: 8px;
+        padding: 15px;
     }
     
-    /* Info/Warning/Success boxes */
+    .stCodeBlock pre {
+        color: #e0e0e0 !important;
+    }
+    
+    /* Alert/Info boxes */
     .stAlert {
-        background-color: #1f2937 !important;
-        color: #ffffff !important;
+        background-color: #e8f4f8 !important;
+        border-left: 4px solid #0f3460 !important;
+        color: #1a1a2e !important;
+    }
+    
+    .stAlert .stMarkdown {
+        color: #1a1a2e !important;
+    }
+    
+    /* Success boxes */
+    .stAlert[data-testid="stAlert"][data-kind="success"] {
+        background-color: #d4edda !important;
+        border-left-color: #28a745 !important;
+    }
+    
+    /* Warning boxes */
+    .stAlert[data-testid="stAlert"][data-kind="warning"] {
+        background-color: #fff3cd !important;
+        border-left-color: #ffc107 !important;
+    }
+    
+    /* Error boxes */
+    .stAlert[data-testid="stAlert"][data-kind="error"] {
+        background-color: #f8d7da !important;
+        border-left-color: #dc3545 !important;
     }
     
     /* Buttons */
     .stButton button {
-        background-color: #3b82f6 !important;
+        background: linear-gradient(135deg, #0f3460 0%, #16213e 100%) !important;
         color: #ffffff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 8px 20px !important;
+        font-weight: 600 !important;
+        transition: transform 0.2s ease !important;
     }
     
-    /* Download button */
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Download button - Different color */
     .stDownloadButton button {
-        background-color: #10b981 !important;
-        color: #ffffff !important;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
     }
     
     /* Expander */
     .streamlit-expanderHeader {
-        color: #ffffff !important;
-        background-color: #1f2937 !important;
+        background-color: #f8f9fa !important;
+        color: #0f3460 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
     }
     
-    /* Progress text */
+    .streamlit-expanderHeader:hover {
+        background-color: #e9ecef !important;
+    }
+    
+    /* Progress bar */
     .stProgress > div > div > div > div {
+        background-color: #0f3460 !important;
+    }
+    
+    /* Spinner text */
+    .stSpinner > div {
+        color: #0f3460 !important;
+    }
+    
+    /* Divider */
+    hr {
+        border-top: 2px solid #e0e0e0 !important;
+    }
+    
+    /* Caption text */
+    .stCaption {
+        color: #5a6c7e !important;
+        font-style: italic !important;
+    }
+    
+    /* File uploader */
+    .stFileUploader {
+        background-color: #ffffff !important;
+        border: 2px dashed #0f3460 !important;
+        border-radius: 10px !important;
+    }
+    
+    /* Radio buttons in sidebar */
+    .stSidebar .stRadio [data-baseweb="radio"] {
         color: #ffffff !important;
+    }
+    
+    /* Text input in sidebar */
+    .stSidebar .stTextInput input {
+        background-color: rgba(255,255,255,0.1) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255,255,255,0.3) !important;
+    }
+    
+    .stSidebar .stTextInput input::placeholder {
+        color: rgba(255,255,255,0.5) !important;
+    }
+    
+    /* Success message in sidebar */
+    .stSidebar .stAlert {
+        background-color: rgba(40,167,69,0.2) !important;
+        color: #ffffff !important;
+    }
+    
+    /* Typography for attack details */
+    .attack-detail {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin: 10px 0;
+        border-left: 4px solid #e94560;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -524,7 +679,7 @@ def run_streamlit_app() -> None:
     
     default_key = os.getenv("ABUSEIPDB_API_KEY", "")
     api_key = st.sidebar.text_input(
-        "AbuseIPDB API Key",
+        "🔑 AbuseIPDB API Key",
         value=default_key,
         type="password",
         help="Get a free key at https://www.abuseipdb.com/register"
@@ -535,40 +690,40 @@ def run_streamlit_app() -> None:
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("📂 Log Source")
-    upload_mode = st.sidebar.radio("Input method", ["Upload file", "Enter file path"])
+    upload_mode = st.sidebar.radio("Input method", ["📤 Upload file", "📁 Enter file path"])
 
     log_df = pd.DataFrame()
 
-    if upload_mode == "Upload file":
+    if upload_mode == "📤 Upload file":
         uploaded = st.sidebar.file_uploader(
             "Upload access.log", 
             type=["log", "txt"],
             help="Apache/Nginx combined log format"
         )
         if uploaded:
-            with st.spinner("Parsing log file..."):
+            with st.spinner("📊 Parsing log file..."):
                 raw = uploaded.read()
                 log_df = parse_log_bytes(raw)
                 if not log_df.empty:
                     st.sidebar.success(f"✅ Loaded {len(log_df):,} log lines")
                 else:
-                    st.sidebar.error("No valid log entries found")
+                    st.sidebar.error("❌ No valid log entries found")
     else:
         log_path = st.sidebar.text_input(
-            "Log file path", 
+            "📝 Log file path", 
             placeholder="/var/log/nginx/access.log"
         )
-        if log_path and st.sidebar.button("📂 Load File", type="primary"):
-            with st.spinner("Parsing log file..."):
+        if log_path and st.sidebar.button("📂 Load File", type="primary", use_container_width=True):
+            with st.spinner("📊 Parsing log file..."):
                 log_df = parse_log(log_path)
                 if not log_df.empty:
                     st.sidebar.success(f"✅ Loaded {len(log_df):,} log lines")
                 else:
-                    st.sidebar.error("Could not load file — check path")
+                    st.sidebar.error("❌ Could not load file — check path")
 
     # ── Main panel ────────────────────────────────────────────────────────────
     if log_df.empty:
-        st.info("👈 **Get Started** — Upload a log file or enter a file path in the sidebar")
+        st.info("👈 **Get Started** — Upload a log file or enter a file path in the sidebar to begin analysis")
         _show_sample_format()
         return
 
@@ -608,66 +763,79 @@ def run_streamlit_app() -> None:
 
     st.divider()
     
-    # ── Triage Report Table (FIXED - no applymap) ─────────────────────────────
+    # ── Triage Report Table ───────────────────────────────────────────────────
     st.subheader("📋 SOC Triage Report")
     
-    # Display dataframe with white text (no styling that might break)
+    # Display dataframe with custom column config
     st.dataframe(
         report_df,
         use_container_width=True,
         height=400,
         column_config={
             "Threat Intel Score": st.column_config.TextColumn(
-                "Threat Intel Score",
-                help="Threat level based on AbuseIPDB score",
+                "🎯 Threat Intel Score",
+                help="Threat level based on AbuseIPDB confidence score",
                 width="small",
             ),
             "Evidence": st.column_config.TextColumn(
-                "Evidence",
+                "🔍 Evidence",
                 width="large",
+            ),
+            "Confidence": st.column_config.TextColumn(
+                "📊 Confidence",
+                width="small",
             ),
         }
     )
 
     # ── CSV Download ──────────────────────────────────────────────────────────
-    csv_buf = io.StringIO()
-    report_df.to_csv(csv_buf, index=False)
-    st.download_button(
-        label="📥 Download CSV Report",
-        data=csv_buf.getvalue().encode("utf-8"),
-        file_name=f"soc_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-        type="primary"
-    )
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        csv_buf = io.StringIO()
+        report_df.to_csv(csv_buf, index=False)
+        st.download_button(
+            label="📥 Download CSV Report",
+            data=csv_buf.getvalue().encode("utf-8"),
+            file_name=f"soc_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
     # ── Attack Distribution Charts ────────────────────────────────────────────
     st.divider()
+    st.subheader("📊 Security Analytics")
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🎯 Attack Types Distribution")
+        st.markdown("#### 🎯 Attack Types Distribution")
         dist = report_df["Attack Type"].value_counts()
         if not dist.empty:
             st.bar_chart(dist)
     
     with col2:
-        st.subheader("📊 Threat Severity Breakdown")
+        st.markdown("#### ⚠️ Threat Severity Breakdown")
         severity = report_df["Threat Intel Score"].value_counts()
         if not severity.empty:
             st.bar_chart(severity)
     
     # ── Attack Details (Expandable) ───────────────────────────────────────────
     st.divider()
-    with st.expander("🔍 **View Detailed Attack Analysis**"):
+    with st.expander("🔍 **View Detailed Attack Analysis**", expanded=False):
         for idx, row in report_df.iterrows():
-            threat_color = "🔴" if row['Threat Intel Score'] == "Critical" else "🟠" if row['Threat Intel Score'] == "High" else "🟡"
+            threat_icon = "🔴" if row['Threat Intel Score'] == "Critical" else "🟠" if row['Threat Intel Score'] == "High" else "🟡" if row['Threat Intel Score'] == "Medium" else "🟢"
             st.markdown(f"""
-            **{threat_color} {row['Attack Type']}** from `{row['Attacker IP']}` | Confidence: {row['Confidence']} | Threat: {row['Threat Intel Score']}
-            - **Evidence:** `{row['Evidence'][:200]}`
-            - **Timestamp:** {row['Timestamp']}
-            - **Usage Type:** {row['Usage Type']} | **Abuse Score:** {row['Abuse Score']}
-            ---
-            """)
+            <div class="attack-detail">
+            <strong>{threat_icon} {row['Attack Type']}</strong> from <code>{row['Attacker IP']}</code><br>
+            <strong>Confidence:</strong> {row['Confidence']} &nbsp;|&nbsp;
+            <strong>Threat Level:</strong> {row['Threat Intel Score']}<br>
+            <strong>🔍 Evidence:</strong> <code>{row['Evidence'][:200]}</code><br>
+            <strong>📅 Timestamp:</strong> {row['Timestamp']}<br>
+            <strong>🏢 Usage Type:</strong> {row['Usage Type']} &nbsp;|&nbsp;
+            <strong>📊 Abuse Score:</strong> {row['Abuse Score']}
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown("---")
 
 
 def _show_sample_format() -> None:
@@ -679,24 +847,28 @@ def _show_sample_format() -> None:
         '"-" "Mozilla/5.0"',
         language="text",
     )
-    st.caption("Your log must follow this exact format for proper parsing.")
+    st.caption("💡 Your log must follow this exact format for proper parsing. The tool automatically handles URL-encoded attacks.")
 
 
 def _show_benign_summary(df: pd.DataFrame) -> None:
     """Show summary when no attacks are detected."""
     st.subheader("📊 Log Summary")
     
-    top_ips = df["ip"].value_counts().head(5)
-    if not top_ips.empty:
-        st.write("**Top IPs by request count:**")
-        st.dataframe(top_ips.reset_index().rename(
-            columns={"index": "IP", "ip": "Requests"}
-        ), use_container_width=True)
+    col1, col2 = st.columns(2)
     
-    status_codes = df["status"].value_counts().sort_index()
-    if not status_codes.empty:
-        st.write("**HTTP Status Code Distribution:**")
-        st.bar_chart(status_codes)
+    with col1:
+        st.markdown("#### 📍 Top IPs by Request Count")
+        top_ips = df["ip"].value_counts().head(5)
+        if not top_ips.empty:
+            st.dataframe(top_ips.reset_index().rename(
+                columns={"index": "IP", "ip": "Requests"}
+            ), use_container_width=True)
+    
+    with col2:
+        st.markdown("#### 📡 HTTP Status Code Distribution")
+        status_codes = df["status"].value_counts().sort_index()
+        if not status_codes.empty:
+            st.bar_chart(status_codes)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
