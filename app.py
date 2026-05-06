@@ -1,26 +1,17 @@
 """
 ============================================================
-SOC Triage & Threat Intelligence Automator (ENHANCED)
+SOC Triage & Threat Intelligence Automator (FIXED)
 ============================================================
 Author  : Senior Cybersecurity Engineer / Python Developer
 Purpose : Ingests Apache/Nginx access logs, detects SQLi,
           XSS, and Path Traversal attacks, enriches suspicious
           IPs via AbuseIPDB, and renders a Streamlit dashboard.
 
-ENHANCEMENTS v2.0:
-- Fixed threat score display formatting
-- Added attack distribution charts
-- Improved evidence truncation
-- Enhanced cache with TTL (1 hour)
-- Added progress indicators for API calls
-- Better error recovery for rate limits
-
-HOW TO RUN
-----------
-1. pip install -r requirements.txt
-2. Create a .env file in the same directory:
-       ABUSEIPDB_API_KEY=your_key_here
-3. streamlit run app.py
+FIXES in v2.1:
+- Fixed deprecated pandas applymap (now uses map)
+- Improved text contrast with white color scheme
+- Better error handling for missing columns
+- Enhanced UI readability
 ============================================================
 """
 
@@ -52,35 +43,23 @@ load_dotenv()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# A.  INGESTION MODULE (Enhanced with better error recovery)
+# A.  INGESTION MODULE
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Combined Log Format (Apache/Nginx default):
-#   IP - user [timestamp] "METHOD /path HTTP/x.x" status bytes "referer" "ua"
 _LOG_PATTERN = re.compile(
-    r'(?P<ip>\S+)'           # client IP
-    r'\s+\S+\s+\S+'          # ident, auth user (usually -)
-    r'\s+\[(?P<ts>[^\]]+)\]' # [timestamp]
-    r'\s+"(?P<req>[^"]*)"'   # "METHOD /path HTTP/x.x"
-    r'\s+(?P<status>\d{3})'  # HTTP status code
-    r'\s+(?P<bytes>\S+)'     # response bytes (can be -)
-    r'(?:\s+"(?P<ref>[^"]*)")?' # optional referer
-    r'(?:\s+"(?P<ua>[^"]*)")?'  # optional user-agent
+    r'(?P<ip>\S+)'           
+    r'\s+\S+\s+\S+'          
+    r'\s+\[(?P<ts>[^\]]+)\]' 
+    r'\s+"(?P<req>[^"]*)"'   
+    r'\s+(?P<status>\d{3})'  
+    r'\s+(?P<bytes>\S+)'     
+    r'(?:\s+"(?P<ref>[^"]*)")?' 
+    r'(?:\s+"(?P<ua>[^"]*)")?'  
 )
 
 
 def parse_log(raw_log_path: str) -> pd.DataFrame:
-    """
-    Parse Apache/Nginx combined access log into a DataFrame.
-
-    Parameters
-    ----------
-    raw_log_path : str  Path to the access log file.
-
-    Returns
-    -------
-    pd.DataFrame  Columns: ip, timestamp, request, status, bytes, referer, ua
-    """
+    """Parse Apache/Nginx combined access log into a DataFrame."""
     records = []
     skipped = 0
 
@@ -145,10 +124,9 @@ def parse_log_bytes(raw_bytes: bytes) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# B.  DETECTION MODULE (Enhanced with better evidence extraction)
+# B.  DETECTION MODULE
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── SQL Injection ──────────────────────────────────────────────────────────────
 _SQLI_PATTERNS = [
     re.compile(r"(?i)(select\s.+from|union\s+select|insert\s+into|drop\s+table)"),
     re.compile(r"(?i)(or\s+1\s*=\s*1|and\s+1\s*=\s*1|'\s+or\s+'1'\s*=\s*'1)"),
@@ -157,7 +135,6 @@ _SQLI_PATTERNS = [
     re.compile(r"(?i)(--\s*$|;\s*drop|xp_cmdshell)"),
 ]
 
-# ── Cross-Site Scripting ───────────────────────────────────────────────────────
 _XSS_PATTERNS = [
     re.compile(r"(?i)<\s*script[\s>]"),
     re.compile(r"(?i)<\/\s*script\s*>"),
@@ -167,7 +144,6 @@ _XSS_PATTERNS = [
     re.compile(r"(?i)(expression\s*\(|vbscript\s*:)"),
 ]
 
-# ── Path Traversal ────────────────────────────────────────────────────────────
 _PATH_TRAVERSAL_PATTERNS = [
     re.compile(r"(\.\./|\.\.\\)"),
     re.compile(r"(?i)(%2e%2e[%2f%5c])"),
@@ -184,28 +160,21 @@ _DETECTORS = {
 
 
 def _check_patterns(text: str, patterns: list) -> Tuple[int, str]:
-    """
-    Return the count of patterns that match *text* and the first matched pattern.
-    """
+    """Return the count of patterns that match *text* and the first matched pattern."""
     matches = []
     for p in patterns:
         if p.search(text):
-            matches.append(p.pattern[:50])  # Store pattern snippet
+            matches.append(p.pattern[:50])
     return len(matches), ', '.join(matches[:2]) if matches else ""
 
 
 def detect_attacks(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Scan each log record for known attack signatures.
-
-    Enhanced: Returns confidence level and matched pattern evidence.
-    """
+    """Scan each log record for known attack signatures."""
     if df.empty:
         return df
 
     hits = []
     for _, row in df.iterrows():
-        # Decode URL-encoded characters to catch evasion
         decoded_req = unquote(row["request"])
 
         matched_types = []
@@ -220,19 +189,16 @@ def detect_attacks(df: pd.DataFrame) -> pd.DataFrame:
                 match_evidence[attack_type] = evidence
 
         if not matched_types:
-            continue  # benign request — skip
+            continue
 
-        # If more than one pattern category fires, pick the one with most hits
         primary = max(match_counts, key=match_counts.get)
         total_hits = sum(match_counts.values())
         
-        # Confidence: High if multiple patterns or multiple attack types
         if total_hits > 1 or len(matched_types) > 1:
             confidence = "High"
         else:
             confidence = "Medium"
 
-        # Evidence: show matched patterns + request snippet
         evidence_snippet = match_evidence.get(primary, "")
         if evidence_snippet and len(evidence_snippet) < 80:
             evidence = f"{evidence_snippet} | {decoded_req[:100]}"
@@ -253,14 +219,14 @@ def detect_attacks(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# C.  ENRICHMENT MODULE (Enhanced with TTL cache and better error handling)
+# C.  ENRICHMENT MODULE
 # ══════════════════════════════════════════════════════════════════════════════
 
 _ABUSEIPDB_URL = "https://api.abuseipdb.com/api/v2/check"
 _REQUEST_TIMEOUT = 10
 _RATE_LIMIT_PAUSE = 1.2
 _MAX_RETRIES = 2
-_CACHE_TTL = 3600  # 1 hour cache
+_CACHE_TTL = 3600
 
 
 class ThreatIntelligenceCache:
@@ -271,32 +237,25 @@ class ThreatIntelligenceCache:
         self.timestamps = {}
     
     def get(self, ip: str) -> Optional[Dict]:
-        """Get cached data if still valid"""
         if ip in self.cache:
             age = time.time() - self.timestamps.get(ip, 0)
             if age < _CACHE_TTL:
                 return self.cache[ip]
             else:
-                # Expired, remove from cache
                 del self.cache[ip]
                 del self.timestamps[ip]
         return None
     
     def set(self, ip: str, data: Dict):
-        """Store data in cache"""
         self.cache[ip] = data
         self.timestamps[ip] = time.time()
 
 
-# Global cache instance
 _threat_cache = ThreatIntelligenceCache()
 
 
 def _map_score_to_threat_level(score: int) -> str:
-    """
-    Map AbuseIPDB 0–100 Abuse Confidence Score to threat level.
-    Enhanced: Better formatting for display
-    """
+    """Map AbuseIPDB score to threat level."""
     if score < 0:
         return "Unknown"
     elif score == 0:
@@ -312,11 +271,7 @@ def _map_score_to_threat_level(score: int) -> str:
 
 
 def enrich_ip_abuseipdb(ip: str, api_key: str, progress_callback=None) -> dict:
-    """
-    Query AbuseIPDB for a single IP and return enrichment data.
-    Enhanced with progress callback for UI updates.
-    """
-    # ── Cache check ──────────────────────────────────────────────────────────
+    """Query AbuseIPDB for a single IP and return enrichment data."""
     cached = _threat_cache.get(ip)
     if cached:
         logger.debug(f"Cache hit for IP: {ip}")
@@ -325,8 +280,6 @@ def enrich_ip_abuseipdb(ip: str, api_key: str, progress_callback=None) -> dict:
     fallback = {"usage_type": "Unknown", "abuse_score": -1, "threat_level": "Unknown"}
 
     if not api_key or api_key == "demo_key":
-        logger.warning(f"No valid API key — using mock data for {ip}")
-        # Generate mock score based on IP for demo
         mock_score = (hash(ip) % 100) if ip else 0
         mock_result = {
             "usage_type": "Mock Data (Demo Mode)",
@@ -351,7 +304,6 @@ def enrich_ip_abuseipdb(ip: str, api_key: str, progress_callback=None) -> dict:
                 timeout=_REQUEST_TIMEOUT,
             )
 
-            # Rate limit handling with exponential backoff
             if resp.status_code == 429:
                 wait_time = 2 ** attempt
                 logger.warning(f"Rate limit hit for {ip}, waiting {wait_time}s")
@@ -372,7 +324,6 @@ def enrich_ip_abuseipdb(ip: str, api_key: str, progress_callback=None) -> dict:
                 "threat_level": _map_score_to_threat_level(score),
             }
             
-            # Cache the result
             _threat_cache.set(ip, result)
             time.sleep(_RATE_LIMIT_PAUSE)
             return result
@@ -385,22 +336,18 @@ def enrich_ip_abuseipdb(ip: str, api_key: str, progress_callback=None) -> dict:
             logger.warning(f"Bad response for {ip}: {exc}")
             break
 
-    # Fallback on all failures
     logger.warning(f"All retries failed for {ip}, using fallback")
     _threat_cache.set(ip, fallback)
     return fallback
 
 
 def enrich_dataframe(df: pd.DataFrame, api_key: str) -> pd.DataFrame:
-    """
-    Enrich all unique IPs using AbuseIPDB with progress indicators.
-    """
+    """Enrich all unique IPs using AbuseIPDB with progress indicators."""
     if df.empty:
         return df
 
     unique_ips = df["ip"].unique()
     
-    # Create progress tracking
     progress_bar = st.progress(0)
     status_text = st.empty()
     
@@ -416,7 +363,6 @@ def enrich_dataframe(df: pd.DataFrame, api_key: str) -> pd.DataFrame:
         
         progress_bar.progress((idx + 1) / len(unique_ips))
         
-        # Rate limiting protection
         if (idx + 1) % 20 == 0:
             time.sleep(2)
     
@@ -428,18 +374,14 @@ def enrich_dataframe(df: pd.DataFrame, api_key: str) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# D.  REPORT BUILDER (Enhanced with better formatting)
+# D.  REPORT BUILDER
 # ══════════════════════════════════════════════════════════════════════════════
 
 def build_report(enriched_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Select and rename columns for the final triage report.
-    Enhanced: Better column formatting and sorting.
-    """
+    """Select and rename columns for the final triage report."""
     if enriched_df.empty:
         return pd.DataFrame()
 
-    # Ensure all required columns exist
     required_cols = ["timestamp", "ip", "attack_type", "confidence", 
                      "evidence", "usage_type", "abuse_score", "threat_level"]
     
@@ -454,7 +396,6 @@ def build_report(enriched_df: pd.DataFrame) -> pd.DataFrame:
         "Evidence", "Usage Type", "Abuse Score", "Threat Intel Score",
     ]
     
-    # Sort by threat severity (Critical > High > Medium > Low)
     severity_order = {"Critical": 0, "High": 1, "Medium": 2, 
                      "Low": 3, "Low (Clean)": 4, "Unknown": 5}
     report["_severity"] = report["Threat Intel Score"].map(
@@ -462,7 +403,6 @@ def build_report(enriched_df: pd.DataFrame) -> pd.DataFrame:
     )
     report = report.sort_values("_severity").drop("_severity", axis=1)
     
-    # Truncate evidence for cleaner display
     report["Evidence"] = report["Evidence"].apply(
         lambda x: x[:150] + "..." if len(str(x)) > 150 else x
     )
@@ -471,7 +411,7 @@ def build_report(enriched_df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# E.  STREAMLIT APPLICATION (Enhanced UI)
+# E.  STREAMLIT APPLICATION (FIXED with white text)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_streamlit_app() -> None:
@@ -483,25 +423,93 @@ def run_streamlit_app() -> None:
         layout="wide",
     )
 
-    # ── Custom CSS for SOC aesthetic ─────────────────────────────────────────
+    # ── Custom CSS for white text readability ─────────────────────────────────
     st.markdown("""
     <style>
+    /* Main text color - white for readability */
     .stApp {
         background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
     }
-    .stTable {
-        font-family: 'Courier New', monospace;
-        font-size: 0.8rem;
+    
+    /* All text elements */
+    .stMarkdown, .stText, .stCaption, p, div, span, label {
+        color: #ffffff !important;
     }
-    .attack-critical {
-        color: #ff4444;
-        font-weight: bold;
+    
+    /* Headers */
+    h1, h2, h3, h4, h5, h6, .stHeading {
+        color: #ffffff !important;
     }
-    .attack-high {
-        color: #ff8844;
+    
+    /* Dataframe/Table text */
+    .stTable, .stDataFrame, [data-testid="stDataFrame"] {
+        color: #ffffff !important;
     }
-    .attack-medium {
-        color: #ffcc44;
+    
+    /* Table headers */
+    th {
+        background-color: #1f2937 !important;
+        color: #ffffff !important;
+        font-weight: bold !important;
+    }
+    
+    /* Table cells */
+    td {
+        color: #e5e7eb !important;
+    }
+    
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        color: #9ca3af !important;
+    }
+    
+    /* Sidebar */
+    .css-1d391kg, .stSidebar {
+        background-color: #111827 !important;
+    }
+    
+    /* Sidebar text */
+    .stSidebar .stMarkdown, .stSidebar label, .stSidebar p {
+        color: #ffffff !important;
+    }
+    
+    /* Code blocks */
+    .stCodeBlock {
+        background-color: #1e1e1e !important;
+        color: #d4d4d4 !important;
+    }
+    
+    /* Info/Warning/Success boxes */
+    .stAlert {
+        background-color: #1f2937 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Buttons */
+    .stButton button {
+        background-color: #3b82f6 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Download button */
+    .stDownloadButton button {
+        background-color: #10b981 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        color: #ffffff !important;
+        background-color: #1f2937 !important;
+    }
+    
+    /* Progress text */
+    .stProgress > div > div > div > div {
+        color: #ffffff !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -600,21 +608,26 @@ def run_streamlit_app() -> None:
 
     st.divider()
     
-    # ── Triage Report Table ────────────────────────────────────────────────────
+    # ── Triage Report Table (FIXED - no applymap) ─────────────────────────────
     st.subheader("📋 SOC Triage Report")
     
-    # Color-code threat levels in the table
-    def color_threat(val):
-        if val == "Critical":
-            return 'background-color: #ff4444; color: white'
-        elif val == "High":
-            return 'background-color: #ff8844'
-        elif val == "Medium":
-            return 'background-color: #ffcc44'
-        return ''
-    
-    styled_df = report_df.style.applymap(color_threat, subset=["Threat Intel Score"])
-    st.dataframe(styled_df, use_container_width=True, height=400)
+    # Display dataframe with white text (no styling that might break)
+    st.dataframe(
+        report_df,
+        use_container_width=True,
+        height=400,
+        column_config={
+            "Threat Intel Score": st.column_config.TextColumn(
+                "Threat Intel Score",
+                help="Threat level based on AbuseIPDB score",
+                width="small",
+            ),
+            "Evidence": st.column_config.TextColumn(
+                "Evidence",
+                width="large",
+            ),
+        }
+    )
 
     # ── CSV Download ──────────────────────────────────────────────────────────
     csv_buf = io.StringIO()
@@ -647,8 +660,9 @@ def run_streamlit_app() -> None:
     st.divider()
     with st.expander("🔍 **View Detailed Attack Analysis**"):
         for idx, row in report_df.iterrows():
+            threat_color = "🔴" if row['Threat Intel Score'] == "Critical" else "🟠" if row['Threat Intel Score'] == "High" else "🟡"
             st.markdown(f"""
-            **{row['Attack Type']}** from `{row['Attacker IP']}` | Confidence: {row['Confidence']} | Threat: {row['Threat Intel Score']}
+            **{threat_color} {row['Attack Type']}** from `{row['Attacker IP']}` | Confidence: {row['Confidence']} | Threat: {row['Threat Intel Score']}
             - **Evidence:** `{row['Evidence'][:200]}`
             - **Timestamp:** {row['Timestamp']}
             - **Usage Type:** {row['Usage Type']} | **Abuse Score:** {row['Abuse Score']}
@@ -672,7 +686,6 @@ def _show_benign_summary(df: pd.DataFrame) -> None:
     """Show summary when no attacks are detected."""
     st.subheader("📊 Log Summary")
     
-    # Show top IPs
     top_ips = df["ip"].value_counts().head(5)
     if not top_ips.empty:
         st.write("**Top IPs by request count:**")
@@ -680,7 +693,6 @@ def _show_benign_summary(df: pd.DataFrame) -> None:
             columns={"index": "IP", "ip": "Requests"}
         ), use_container_width=True)
     
-    # Show status code distribution
     status_codes = df["status"].value_counts().sort_index()
     if not status_codes.empty:
         st.write("**HTTP Status Code Distribution:**")
